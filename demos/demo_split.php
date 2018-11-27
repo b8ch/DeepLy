@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Minimal class autoloader
  *
@@ -10,7 +9,6 @@ function miniAutoloader($class)
     $class = str_replace('\\', '/', $class);
     require __DIR__ . '/../src/' . $class . '.php';
 }
-
 // If the Composer autoloader exists, use it. If not, use our own as fallback.
 $composerAutoloader = __DIR__.'/../vendor/autoload.php';
 if (is_readable($composerAutoloader)) {
@@ -18,11 +16,8 @@ if (is_readable($composerAutoloader)) {
 } else {
     spl_autoload_register('miniAutoloader');
 }
-
 $text = isset($_POST['text']) ? $_POST['text'] : null;
-
-$deepLy = new ChrisKonnertz\DeepLy\DeepLy();
-
+$deepLy = new ChrisKonnertz\DeepLy\DeepLy('example-api-key');
 ?>
 <!DOCTYPE html>
 <html>
@@ -70,21 +65,17 @@ $deepLy = new ChrisKonnertz\DeepLy\DeepLy();
 
         <div class="block result">
             <?php
-
             if ($text !== null) {
                 try {
                     $result = $deepLy->splitText($text);
-
                     $wrapped = '<table class="table border stripe"><tr><td>'.
                         implode('</td></tr><tr><td>', $result).
                         "</td></tr></table>";
-
                     echo '<div class="success">Sentences: <blockquote><b>' . $wrapped . '</b></blockquote></div>';
                 } catch (\Exception $exception) {
                     echo '<div class="error">'.$exception->getMessage().'</div>';
                 }
             }
-
             ?>
         </div>
     </div>
@@ -105,7 +96,6 @@ $deepLy = new ChrisKonnertz\DeepLy\DeepLy();
             function()
             {
                 var request = new XMLHttpRequest();
-
                 request.addEventListener('readystatechange', function() {
                     if (request.readyState === XMLHttpRequest.DONE) {
                         if (request.status !== 200 || request.responseText !== '1') {
@@ -114,7 +104,6 @@ $deepLy = new ChrisKonnertz\DeepLy\DeepLy();
                         }
                     }
                 });
-
                 request.open('GET', 'demo_ping.php?simple=1', true);
                 request.send();
             }
