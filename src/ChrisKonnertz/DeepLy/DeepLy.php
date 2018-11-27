@@ -1,7 +1,5 @@
 <?php
-
 namespace ChrisKonnertz\DeepLy;
-
 use ChrisKonnertz\DeepLy\HttpClient\CallException;
 use ChrisKonnertz\DeepLy\HttpClient\HttpClientInterface;
 use ChrisKonnertz\DeepLy\HttpClient\CurlHttpClient;
@@ -9,13 +7,11 @@ use ChrisKonnertz\DeepLy\Protocol\JsonRpcProtocol;
 use ChrisKonnertz\DeepLy\Protocol\ProtocolInterface;
 use ChrisKonnertz\DeepLy\ResponseBag\SentencesBag;
 use ChrisKonnertz\DeepLy\ResponseBag\TranslationBag;
-
 /**
  * This is the main class. Call its translate() method to translate text.
  */
 class DeepLy
 {
-
     /**
      * All supported language code constants
      * @see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
@@ -28,7 +24,6 @@ class DeepLy
     const LANG_IT = 'IT'; // Italian
     const LANG_NL = 'NL'; // Dutch
     const LANG_PL = 'PL'; // Polish
-
     /**
      * Array with all supported language codes
      * @see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
@@ -43,7 +38,6 @@ class DeepLy
         self::LANG_NL,
         self::LANG_PL,
     ];
-
     /**
      * Array with language codes as keys and the matching language names in English as values
      * @see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
@@ -58,28 +52,34 @@ class DeepLy
         self::LANG_NL => 'Dutch',
         self::LANG_PL => 'Polish',
     ];
-
     /**
      * The length of the text for translations is limited by the API
      */
     const MAX_TRANSLATION_TEXT_LEN = 5000;
-
     /**
      * Constants that are names of methods that can be called via the API
      */
     const METHOD_TRANSLATE = 'LMT_handle_jobs'; // Translates a text
     const METHOD_SPLIT = 'LMT_split_into_sentences'; // Splits a text into sentences
-
     /**
      * The base URL of the API endpoint
      */
-    const API_BASE_URL = 'https://www2.deepl.com/jsonrpc/';
-
+    const API_BASE_URL = 'https://api.deepl.com/v2/translate';
+    /**
+     * Array with all versions of the DeepL API that are supported
+     * by the current version of DeepLy.
+     */
+    const API_SUPPORT = [2];
     /**
      * Current version number
      */
-    const VERSION = '1.6.0';
-
+    const VERSION = '2.0-alpha';
+    /**
+     * The API key that we need to authenticate
+     *
+     * @var string
+     */
+    protected $apiKey;
     /**
      * If true, validate that the length of a translation text
      * is not greater than self::MAX_TRANSLATION_TEXT_LEN
@@ -87,40 +87,37 @@ class DeepLy
      * @var bool
      */
     protected $validateTextLength = true;
-
     /**
      * The protocol used for communication
      *
      * @var ProtocolInterface
      */
     protected $protocol;
-
     /**
      * The HTTP client used for communication
      *
      * @var HttpClientInterface
      */
     protected $httpClient;
-
     /**
      * This property stores the result (object) of the last translation
      *
      * @var TranslationBag|null
      */
     protected $translationBag = null;
-
     /**
      * DeepLy object constructor.
+     *
+     * @param string $apiKey The API key for the DeepL API
      */
-    public function __construct()
+    public function __construct($apiKey)
     {
+        $this->setApiKey($apiKey);
         // Create the default protocol object. You may call setProtocol() to switch it.
         $this->protocol = new JsonRpcProtocol();
-
         // Create the default HTTP client. You may call setHttpClient() to set another HTTP client.
         $this->httpClient = new CurlHttpClient($this->protocol);
     }
-
     /**
      * Uses the DeepL API to split a text into sentences. Stores them in a SentencesBag object and returns it.
      * You may use the splitText() method if you want to get the result as a string array.
@@ -149,23 +146,17 @@ class DeepLy
         } else {
             $text = [$text];
         }
-
         $params = [
             'texts' => $text,
             'lang' => [
                 'lang_user_selected' => $from
             ]
         ];
-
-        $rawResponseData = $this->httpClient->callApi(self::API_BASE_URL, $params, self::METHOD_SPLIT);
-
+        $rawResponseData = $this->httpClient->callApi(self::API_BASE_URL, $params, self::METHOD_SPLIT, $this->apiKey);
         $responseContent = $this->protocol->processResponseData($rawResponseData);
-
         $splitTextBag = new SentencesBag($responseContent);
-
         return $splitTextBag;
     }
-
     /**
      * Uses the DeepL API to split a text into a string array of sentences.
      * This method might throw an exception so you should wrap it in a try-catch-block.
@@ -178,12 +169,9 @@ class DeepLy
     public function splitText($text, $from = self::LANG_AUTO)
     {
         $splitTextBag = $this->requestSplitText($text, $from);
-
         $sentences = $splitTextBag->getAllSentences();
-
         return $sentences;
     }
-
     /**
      * Tries to detect the language of a text and returns its language code.
      * The language of the text has to be one of the supported languages or the result will be incorrect.
@@ -199,10 +187,8 @@ class DeepLy
         // Note: We always use English as the target language. if the source language is English as well,
         // DeepL automatically seems to set the target language to French so this is not a problem.
         $translationBag = $this->requestTranslation($text, self::LANG_EN, self::LANG_AUTO);
-
         return $translationBag->getSourceLanguage();
     }
-
     /**
      * Requests a translation from the API. Returns a TranslationBag object.
      * ATTENTION: The target language parameter is followed by the source language parameter!
@@ -218,7 +204,6 @@ class DeepLy
     protected function requestTranslation($text, $to = self::LANG_EN, $from = self::LANG_AUTO)
     {
         $this->translationBag = null;
-
         if (! is_string($text) and ! is_array($text)) {
             throw new \InvalidArgumentException('The $text argument has to be a string or an array');
         }
@@ -259,7 +244,6 @@ class DeepLy
         if (! in_array($from, self::LANG_CODES)) {
             throw new \InvalidArgumentException('The $from argument has to a valid language code');
         }
-
         // Note that this array will be converted to a data structure of arrays AND objects later on
         $params = [
             'lang' => [
@@ -267,11 +251,9 @@ class DeepLy
                 'target_lang' => $to,
             ]
         ];
-
         if (is_array($text)) {
             $lines = $text;
             $sentences = [];
-
             foreach ($text as $sentence) {
                 $sentences[] = [$sentence];
             }
@@ -281,20 +263,16 @@ class DeepLy
             if (strpos($text, $lineBreak) === false and strpos($text, "\n") !== false) {
                 $lineBreak = "\n";
             }
-
             $lines = explode($lineBreak, $text);
-
             $sentencesBag = $this->requestSplitText($lines, $from);
             $sentences = $sentencesBag->getAllSentencesGrouped();
         }
-
         $params['jobs'] = [];
         $lineBreaks = [];
         foreach ($lines as $index => $line) {
             if ($index > 0) {
                 $lineBreaks[] = sizeof($params['jobs']);
             }
-
             foreach ($sentences[$index] as $sentence) {
                 $params['jobs'][] =  [
                     'kind' => 'default',
@@ -302,20 +280,14 @@ class DeepLy
                 ];
             }
         }
-
         // The API call might throw an exception but we do not want to catch it,
         // instead the caller of this method has to catch it.
-        $rawResponseData = $this->httpClient->callApi(self::API_BASE_URL, $params, self::METHOD_TRANSLATE);
-
+        $rawResponseData = $this->httpClient->callApi(self::API_BASE_URL, $params, self::METHOD_TRANSLATE, $this->apiKey);
         $responseContent = $this->protocol->processResponseData($rawResponseData);
-
         $translationBag = new TranslationBag($responseContent, $lineBreaks);
-
         $this->translationBag = $translationBag;
-
         return $translationBag;
     }
-
     /**
      * Translates a text.
      * ATTENTION: The target language parameter is followed by the source language parameter!
@@ -329,10 +301,8 @@ class DeepLy
     public function translate($text, $to = self::LANG_EN, $from = self::LANG_AUTO)
     {
         $translationBag = $this->requestTranslation($text, $to, $from);
-
         return $translationBag->getTranslation();
     }
-
     /**
      * Translates a short text / a sentence. Returns an array of translation proposals.
      * ATTENTION: The target language parameter is followed by the source language parameter!
@@ -347,10 +317,8 @@ class DeepLy
     public function proposeTranslations($text, $to = self::LANG_EN, $from = self::LANG_AUTO)
     {
         $translationBag = $this->requestTranslation($text, $to, $from);
-
         return $translationBag->getTranslationAlternatives();
     }
-
     /**
      * Translates a text. Returns a string array of translation sentences.
      * ATTENTION: The target language parameter is followed by the source language parameter!
@@ -365,16 +333,12 @@ class DeepLy
     public function translateSentences(array $sentences, $to = self::LANG_EN, $from = self::LANG_AUTO, $join = false)
     {
         $translationBag = $this->requestTranslation($sentences, $to, $from);
-
         $translatedSentences = $translationBag->getTranslatedSentences();
-
         if ($join) {
             return implode(' ', $translatedSentences);
         }
-
         return $translatedSentences;
     }
-
     /**
      * Translates a text file. The $from argument is optional.
      * ATTENTION: The target language parameter is followed by the source language parameter!
@@ -395,18 +359,14 @@ class DeepLy
         if (! is_readable($filename)) {
             throw new \InvalidArgumentException('Could not read file with the given filename');
         }
-
         $text = file_get_contents($filename);
-
         if ($text === false) {
             throw new \RuntimeException(
                 'Could not read file with the given filename. Does this file exist and do we have read permission?'
             );
         }
-
         return $this->translate($text, $to, $from);
     }
-
     /**
      * Pings the API server. Returns the duration in seconds until the response arrives
      * or throws an exception if no valid response was received.
@@ -418,7 +378,6 @@ class DeepLy
     {
         return $this->httpClient->ping(self::API_BASE_URL);
     }
-
     /**
      * Setter for the validateTextLength property
      * If true, validate that the length of a translation text
@@ -430,7 +389,6 @@ class DeepLy
     {
         return $this->validateTextLength;
     }
-
     /**
      * Getter for the validateTextLength property.
      * If true, validate that the length of a translation text
@@ -443,10 +401,8 @@ class DeepLy
         if (! is_bool($validateTextLength)) {
             throw new \InvalidArgumentException('$validateTextLength has to be boolean');
         }
-
         $this->validateTextLength = $validateTextLength;
     }
-
     /**
      * Getter for the protocol object
      *
@@ -456,7 +412,6 @@ class DeepLy
     {
         return $this->protocol;
     }
-
     /**
      * Setter for the protocol object
      *
@@ -466,7 +421,6 @@ class DeepLy
     {
         $this->protocol = $protocol;
     }
-
     /**
      * Getter for the HTTP client object
      *
@@ -476,7 +430,6 @@ class DeepLy
     {
         return $this->httpClient;
     }
-
     /**
      * Setter for the HTTP client object. This allows you to use another HTTP client
      * than the default cURL based HTTP client.
@@ -487,7 +440,30 @@ class DeepLy
     {
         $this->httpClient = $httpClient;
     }
-
+    /**
+     * Returns the API key of the DeepL API. Returns null if no API key has been set.
+     *
+     * @return string
+     */
+    public function getApiKey()
+    {
+        return $this->apiKey;
+    }
+    /**
+     * Set the API key of the DeepL API. If you do not have an API key please request one from DeepL.
+     *
+     * @see https://www.deepl.com/pro.html
+     *
+     * @param string $apiKey
+     */
+    public function setApiKey($apiKey)
+    {
+        if (! is_string($apiKey)) {
+            throw new \InvalidArgumentException('The $apiKey argument has to be a string');
+        }
+        // TODO URL-encode the apiKey? (Most likely not here, but later on?)
+        $this->apiKey = $apiKey;
+    }
     /**
      * Decides if a language (code) is supported by DeepL(y).
      * Note that 'auto' is not a valid value in this context
@@ -502,12 +478,9 @@ class DeepLy
         if (! is_string($langCode)) {
             throw new \InvalidArgumentException('The $langCode argument has to be a string');
         }
-
         $supported = in_array($langCode, $this->getLangCodes($allowAuto));
-
         return $supported;
     }
-
     /**
      * Getter for the array with all supported language codes
      *
@@ -519,15 +492,12 @@ class DeepLy
         if (! is_bool($withAuto)) {
             throw new \InvalidArgumentException('The $withAuto argument has to be boolean');
         }
-
         if ($withAuto) {
             return self::LANG_CODES;
         }
-
         // ATTENTION! This only works as long as self::LANG_AUTO is the first item!
         return array_slice(self::LANG_CODES, 1);
     }
-
     /**
      * Returns the English name of a language for a given language code.
      * The language code must be on of these: self::LANG_CODES
@@ -540,10 +510,8 @@ class DeepLy
         if (! in_array($langCode, self::LANG_CODES)) {
             throw new \InvalidArgumentException('The language code is unknown');
         }
-
         return self::LANG_NAMES[$langCode];
     }
-
     /**
      * Returns the language code of a language for a given language name.
      * The language name must be one of these: self::LANG_NAMES
@@ -556,10 +524,8 @@ class DeepLy
         if (! in_array($langName, self::LANG_NAMES)) {
             throw new \InvalidArgumentException('The language name is unknown');
         }
-
         return array_search($langName, self::LANG_NAMES);
     }
-
     /**
      * Getter for the TranslationBag object. Might return null!
      * The translation bag contains the result of the last API call.
@@ -570,5 +536,4 @@ class DeepLy
     {
         return $this->translationBag;
     }
-
 }
