@@ -1,5 +1,5 @@
-<?php
 
+<?php
     /**
      * Minimal class autoloader
      *
@@ -10,7 +10,6 @@
         $class = str_replace('\\', '/', $class);
         require __DIR__ . '/../src/' . $class . '.php';
     }
-
     // If the Composer autoloader exists, use it. If not, use our own as fallback.
     $composerAutoloader = __DIR__.'/../vendor/autoload.php';
     if (is_readable($composerAutoloader)) {
@@ -18,11 +17,8 @@
     } else {
         spl_autoload_register('miniAutoloader');
     }
-
     $text = isset($_POST['text']) ? $_POST['text'] : null;
-
-    $deepLy = new ChrisKonnertz\DeepLy\DeepLy();
-
+    $deepLy = new ChrisKonnertz\DeepLy\DeepLy('example-api-key');
 ?>
 <!DOCTYPE html>
 <html>
@@ -68,17 +64,14 @@
 
         <div class="block result">
             <?php
-
                 if ($text !== null) {
                     try {
                         $result = $deepLy->detectLanguage($text);
-
                         echo '<div class="success">Language detected: <blockquote><b>' . $result . '</b></blockquote></div>';
                     } catch (\Exception $exception) {
                         echo '<div class="error">'.$exception->getMessage().'</div>';
                     }
                 }
-
             ?>
         </div>
     </div>
@@ -99,7 +92,6 @@
             function()
             {
                 var request = new XMLHttpRequest();
-
                 request.addEventListener('readystatechange', function() {
                     if (request.readyState === XMLHttpRequest.DONE) {
                         if (request.status !== 200 || request.responseText !== '1') {
@@ -108,7 +100,6 @@
                         }
                     }
                 });
-
                 request.open('GET', 'demo_ping.php?simple=1', true);
                 request.send();
             }
