@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Minimal class autoloader
  *
@@ -10,7 +9,6 @@ function miniAutoloader($class)
     $class = str_replace('\\', '/', $class);
     require __DIR__ . '/../src/' . $class . '.php';
 }
-
 // If the Composer autoloader exists, use it. If not, use our own as fallback.
 $composerAutoloader = __DIR__.'/../vendor/autoload.php';
 if (is_readable($composerAutoloader)) {
@@ -18,14 +16,10 @@ if (is_readable($composerAutoloader)) {
 } else {
     spl_autoload_register('miniAutoloader');
 }
-
-$deepLy = new ChrisKonnertz\DeepLy\DeepLy();
-
+$deepLy = new ChrisKonnertz\DeepLy\DeepLy('example-api-key');
 $simple = (isset($_GET['simple']) and $_GET['simple'] == 1);
-
 try {
     $ping = $deepLy->ping();
-
     if ($simple) {
         echo '1';
     } else {
